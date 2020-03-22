@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+  <setting id="language" label="Language" type="select" default="us" values="el|dk|es|fi|fr|de|it|nl|no|br|ru|se|uk|us" />
+  <setting id="quality" label="Quality" type="select" default="Dynamic" values="Dynamic|Low" />
+</settings>
