@@ -1,12 +1,13 @@
 import json
 import sys
-import urllib
-import urlparse
 import xbmc
 import xbmcgui
 import xbmcaddon
 import xbmcplugin
+import six
 
+from six.moves import urllib
+from six.moves import urllib_parse
 from StorageServer import StorageServer
 
 pktv_api = "https://www.pokemon.com/api/pokemontv/v2/channels/"
@@ -16,18 +17,43 @@ media_names = ["Series", "Movies", "Originals", "Other"]
 base_url = sys.argv[0]
 addon_handle = int(sys.argv[1])
 addon = xbmcaddon.Addon()
-args = urlparse.parse_qs(sys.argv[2][1:])
+args = urllib_parse.parse_qs(sys.argv[2][1:])
 
 xbmcplugin.setContent(addon_handle, "movies")
+
+#python 3 compatibility methods
+if six.PY3:
+
+    def cmp(a, b):
+        return (a > b) - (a < b)
+
+    def cmp_to_key(mycmp):
+        'Convert a cmp= function into a key= function'
+        class K(object):
+            def __init__(self, obj, *args):
+                self.obj = obj
+            def __lt__(self, other):
+                return mycmp(self.obj, other.obj) < 0
+            def __gt__(self, other):
+                return mycmp(self.obj, other.obj) > 0
+            def __eq__(self, other):
+                return mycmp(self.obj, other.obj) == 0
+            def __le__(self, other):
+                return mycmp(self.obj, other.obj) <= 0  
+            def __ge__(self, other):
+                return mycmp(self.obj, other.obj) >= 0
+            def __ne__(self, other):
+                return mycmp(self.obj, other.obj) != 0
+        return K
 
 def notBlank(d, k):
     return d is not None and k is not None and d[k] is not None and d[k] != ""
 
 def newCallback(query):
-    return base_url + "?" + urllib.urlencode(query)
+    return base_url + "?" + urllib_parse.urlencode(query)
 
 def fetchDb(lang):
-    response = urllib.urlopen(pktv_api + lang + "/") 
+    response = urllib.request.urlopen(pktv_api + lang + "/") 
     if response.getcode() != 200:
         raise
         
@@ -83,7 +109,10 @@ elif mode == "channels":
             # Otherwise sort by creation date, newest to oldest
             return cmp(int(b["channel_creation_date"]), int(a["channel_creation_date"]))
 
-    channels.sort(channel_cmp)
+    if six.PY3:
+        channels.sort(key=cmp_to_key(channel_cmp))
+    else:
+        channels.sort(channel_cmp)
 
     for channel in channels:
         item = xbmcgui.ListItem(channel["channel_name"])
