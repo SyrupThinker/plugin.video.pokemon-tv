@@ -31,8 +31,8 @@
     Initial version.
     </news>
     <assets>
-      <!-- <icon>resources/icon.png</icon>
-           <fanart>resources/fanart.jpg</fanart> -->
+      <icon>resources/icon.png</icon>
+      <fanart>resources/fanart.jpg</fanart>
     </assets>
   </extension>
 </addon>
