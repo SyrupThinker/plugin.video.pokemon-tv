@@ -21,6 +21,9 @@ args = urllib_parse.parse_qs(sys.argv[2][1:])
 
 xbmcplugin.setContent(addon_handle, "movies")
 
+PLUGIN_ID = base_url.replace("plugin://","")
+MEDIA_URL = 'special://home/addons/{0}/resources/media/'.format(PLUGIN_ID)
+
 #python 3 compatibility methods
 if six.PY3:
 
@@ -39,7 +42,7 @@ if six.PY3:
             def __eq__(self, other):
                 return mycmp(self.obj, other.obj) == 0
             def __le__(self, other):
-                return mycmp(self.obj, other.obj) <= 0  
+                return mycmp(self.obj, other.obj) <= 0
             def __ge__(self, other):
                 return mycmp(self.obj, other.obj) >= 0
             def __ne__(self, other):
@@ -49,14 +52,14 @@ if six.PY3:
 def notBlank(d, k):
     return d is not None and k is not None and d[k] is not None and d[k] != ""
 
-def newCallback(query):
+def construct_request(query):
     return base_url + "?" + urllib_parse.urlencode(query)
 
 def fetchDb(lang):
-    response = urllib.request.urlopen(pktv_api + lang + "/") 
+    response = urllib.request.urlopen(pktv_api + lang + "/")
     if response.getcode() != 200:
         raise
-        
+
     return json.load(response)
 
 def getChannel(db, cid):
@@ -66,7 +69,7 @@ def getChannel(db, cid):
 
     return None
 
-cache = StorageServer("pokemontvdb", 30)
+cache = StorageServer("pokemontvdb", 48)
 
 db = cache.cacheFunction(fetchDb, addon.getSetting("language"))
 
@@ -76,20 +79,28 @@ if mode is not None:
     mode = mode[0]
 
 if mode is None:
+
     # Type selection
     for i, variant in enumerate(media_types):
-        item = xbmcgui.ListItem(media_names[i])
-        callback = newCallback({
+        list_item = xbmcgui.ListItem(media_names[i])
+        list_item.setArt({
+            "icon":MEDIA_URL + media_names[i] + '.jpg',
+            "poster":MEDIA_URL + media_names[i] + '.jpg',
+        });
+        callback = construct_request({
             "mode": "channels",
             "type": variant,
         })
         xbmcplugin.addDirectoryItem(
-            handle = addon_handle, url = callback,
-            listitem = item, isFolder = True
+            handle = addon_handle,
+            url = callback,
+            listitem = list_item,
+            isFolder = True
         )
     xbmcplugin.endOfDirectory(addon_handle)
 
 elif mode == "channels":
+
     # Channel list
     variant = args.get("type", [""])[0]
     channels = [c for c in db if (variant == "" and c["media_type"] not in media_types) or c["media_type"] == variant]
@@ -115,19 +126,25 @@ elif mode == "channels":
         channels.sort(channel_cmp)
 
     for channel in channels:
-        item = xbmcgui.ListItem(channel["channel_name"])
-        callback = newCallback({
+        list_item = xbmcgui.ListItem(channel["channel_name"])
+        list_item.setArt({
+            "icon":channel["channel_images"]["dashboard_image_1125_1500"],
+            "poster":channel["channel_images"]["dashboard_image_1125_1500"],
+            "fanart":channel["channel_images"]["spotlight_image_2048_1152"],
+        });
+        callback = construct_request({
             "mode": "videos",
             "channel": channel["channel_id"],
             "variant": variant,
         })
         xbmcplugin.addDirectoryItem(
             handle = addon_handle, url = callback,
-            listitem = item, isFolder = True
+            listitem = list_item, isFolder = True
         )
     xbmcplugin.endOfDirectory(addon_handle)
 
 elif mode == "videos":
+
     # Episode list
     channel_id = args.get("channel", [""])[0]
     variant = args.get("variant", [""])[0]
@@ -138,15 +155,18 @@ elif mode == "videos":
         if videos is not None and len(videos) > 0:
             quality = addon.getSetting("quality")
             for video in videos:
-                item = xbmcgui.ListItem(video["title"])
+                list_item = xbmcgui.ListItem(video["title"])
 
+                #set episode's images
                 if video["images"] is not None and notBlank(video["images"], "large"):
-                    for typ in ["thumb", "poster", "banner", "fanart"]:
-                        item.addAvailableArtwork(video["images"]["large"], typ)
+                    for art_type in ["thumb", "poster", "banner", "fanart","icon"]:
+                        list_item.setArt({art_type:video["images"]["large"]})
 
+                #add captions
                 if notBlank(video, "captions"):
-                    item.setSubtitles([video["captions"]])
+                    list_item.setSubtitles([video["captions"]])
 
+                #set the episode's info
                 metadata = {}
                 metadata["title"] = video["title"]
                 metadata["sorttitle"] = video["title"]
@@ -162,16 +182,16 @@ elif mode == "videos":
                     metadata["plot"] = video["description"]
                 metadata["rating"] = video["rating"] * 2
 
-                item.setInfo("video", metadata)
+                list_item.setInfo("video", metadata)
 
                 callback = None
                 if quality == "Low":
                     callback = video["offline_url"]
                 elif quality == "Dynamic":
                     callback = video["stream_url"]
-                    
+
                 xbmcplugin.addDirectoryItem(
                     handle = addon_handle, url = callback,
-                    listitem = item
+                    listitem = list_item
                 )
     xbmcplugin.endOfDirectory(addon_handle)
